@@ -1,3 +1,11 @@
-print("✅ Luxury bot is ready!")
+from flask import Flask
+import os
 
-# Startpunktet for Flask/fastAPI eller annet kan legges til her
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Luxury Video Bot is live and ready!"
+
+if __name__ == "__main__":
+    app.run(debug=True)

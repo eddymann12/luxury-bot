@@ -1,6 +1,6 @@
+flask
 openai
 requests
-flask
 python-dotenv
 google-auth
 google-auth-oauthlib
