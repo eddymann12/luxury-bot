@@ -16,7 +16,9 @@ luxury_keywords = [
     "penthouse",
     "bugatti",
     "rolex",
-    "luxury mansion"
+    "luxury mansion",
+    "luxury life",
+    "rich people"
 ]
 
 @app.route("/")
@@ -35,13 +37,16 @@ def get_luxury_video():
     params = {
         "query": random.choice(luxury_keywords),
         "orientation": "portrait",
-        "per_page": 5
+        "per_page": 15  # Økt antall resultater
     }
 
     response = requests.get(PEXELS_BASE_URL, headers=headers, params=params)
 
     if response.status_code != 200:
-        return jsonify({"error": "Failed to fetch videos from Pexels", "status_code": response.status_code}), 500
+        return jsonify({
+            "error": "Failed to fetch videos from Pexels",
+            "status_code": response.status_code
+        }), 500
 
     data = response.json()
     videos = data.get("videos", [])
@@ -59,8 +64,18 @@ def get_luxury_video():
         if best_quality:
             break
 
+    # Fallback hvis ingen 1080x1920
     if not best_quality:
-        return jsonify({"error": "No suitable 1080x1920 video found"}), 404
+        for video in videos:
+            for file in video.get("video_files", []):
+                if file.get("link"):
+                    best_quality = file["link"]
+                    break
+            if best_quality:
+                break
+
+    if not best_quality:
+        return jsonify({"error": "No suitable video found"}), 404
 
     return jsonify({"video_url": best_quality})
 
