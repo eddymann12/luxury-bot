@@ -2,15 +2,12 @@ from flask import Flask, jsonify, request
 import requests
 import os
 import random
-import urllib.request
 
 app = Flask(__name__)
 
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
 UPLOADCARE_PUBLIC_KEY = os.getenv("UPLOADCARE_PUBLIC_KEY")
-UPLOADCARE_SECRET_KEY = os.getenv("UPLOADCARE_SECRET_KEY")
 PEXELS_BASE_URL = "https://api.pexels.com/videos/search"
-UPLOADCARE_UPLOAD_URL = "https://upload.uploadcare.com/base/"
 
 luxury_keywords = [
     "celebrity lifestyle",
@@ -50,6 +47,9 @@ def get_luxury_video():
     data = response.json()
     videos = data.get("videos", [])
 
+    if not videos:
+        return jsonify({"error": "No videos found"}), 404
+
     best_quality = None
     for video in videos:
         for file in video.get("video_files", []):
@@ -64,32 +64,28 @@ def get_luxury_video():
 
     return jsonify({"video_url": best_quality})
 
-@app.route("/download-video")
-def download_and_upload():
-    try:
-        video_resp = get_luxury_video().json
-        video_url = video_resp.get("video_url")
-        if not video_url:
-            return jsonify({"error": "No video to download"}), 400
+@app.route("/upload", methods=["POST"])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
 
-        local_filename = "/tmp/luxury.mp4"
-        urllib.request.urlretrieve(video_url, local_filename)
+    file_to_upload = request.files['file']
 
-        with open(local_filename, "rb") as f:
-            upload_resp = requests.post(
-                UPLOADCARE_UPLOAD_URL,
-                files={"file": f},
-                data={"UPLOADCARE_STORE": "1", "public_key": UPLOADCARE_PUBLIC_KEY}
-            )
+    response = requests.post(
+        "https://upload.uploadcare.com/base/",
+        data={
+            "UPLOADCARE_PUB_KEY": UPLOADCARE_PUBLIC_KEY,
+            "UPLOADCARE_STORE": "1"
+        },
+        files={
+            "file": (file_to_upload.filename, file_to_upload.stream, file_to_upload.mimetype)
+        }
+    )
 
-        if upload_resp.status_code == 200:
-            upload_url = upload_resp.json().get("file")
-            return jsonify({"uploadcare_url": f"https://ucarecdn.com/{upload_url}/"})
-        else:
-            return jsonify({"error": "Upload failed", "details": upload_resp.text}), 500
+    if response.status_code != 200:
+        return jsonify({"error": "Upload failed", "status": response.status_code}), 500
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify(response.json())
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
