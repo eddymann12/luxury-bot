@@ -4,6 +4,7 @@ import os
 import random
 from moviepy.editor import VideoFileClip, AudioFileClip
 from datetime import datetime
+from pydub import AudioSegment
 
 app = Flask(__name__)
 
@@ -24,6 +25,9 @@ luxury_keywords = [
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+
+# Optional: manually set ffmpeg path for pydub
+AudioSegment.converter = "/usr/bin/ffmpeg"
 
 @app.route("/")
 def index():
@@ -74,6 +78,7 @@ def generate_video():
     try:
         video_path = os.path.join(UPLOAD_FOLDER, "temp_video.mp4")
         audio_path = os.path.join(UPLOAD_FOLDER, "temp_audio.mp3")
+        wav_audio_path = os.path.join(UPLOAD_FOLDER, "temp_audio.wav")
         output_path = os.path.join(UPLOAD_FOLDER, f"final_{datetime.now().strftime('%Y%m%d%H%M%S')}.mp4")
 
         with open(video_path, "wb") as v:
@@ -81,8 +86,12 @@ def generate_video():
         with open(audio_path, "wb") as a:
             a.write(requests.get(audio_url).content)
 
-        video = VideoFileClip(video_path).subclip(0, 14)  # max 14 sek
-        audio = AudioFileClip(audio_path)
+        # Convert MP3 to WAV
+        mp3_audio = AudioSegment.from_mp3(audio_path)
+        mp3_audio.export(wav_audio_path, format="wav")
+
+        video = VideoFileClip(video_path).subclip(0, 14)
+        audio = AudioFileClip(wav_audio_path)
         final = video.set_audio(audio)
         final.write_videofile(output_path, codec="libx264", audio_codec="aac")
 
