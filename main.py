@@ -1,48 +1,56 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, jsonify, send_file
 import requests
 import os
-from moviepy.editor import VideoFileClip, AudioFileClip
 from pydub import AudioSegment
+from moviepy.editor import VideoFileClip, AudioFileClip
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+os.makedirs("downloads", exist_ok=True)
+
+@app.route("/")
+def index():
+    return "Luxury Bot is live!"
 
 @app.route("/combine", methods=["POST"])
-def combine_video_and_audio():
-    data = request.json
-    video_url = data.get("video_url")
-    audio_url = data.get("audio_url")
-
-    if not video_url or not audio_url:
-        return jsonify({"error": "Missing video_url or audio_url"}), 400
-
+def combine():
     try:
-        os.makedirs("downloads", exist_ok=True)
+        data = request.json
+        video_url = data.get("video_url")
+        audio_url = data.get("audio_url")
 
-        video_path = "downloads/temp_video.mp4"
-        audio_mp3_path = "downloads/temp_audio.mp3"
-        audio_wav_path = "downloads/temp_audio.wav"
-        output_path = "downloads/final_output.mp4"
+        if not video_url or not audio_url:
+            return jsonify({"error": "Missing video_url or audio_url"}), 400
 
+        video_path = os.path.join("downloads", "temp_video.mp4")
+        audio_path = os.path.join("downloads", "temp_audio.mp3")
+        output_path = os.path.join("downloads", "final_video.mp4")
+
+        # Last ned video
+        video_data = requests.get(video_url)
         with open(video_path, "wb") as f:
-            f.write(requests.get(video_url).content)
+            f.write(video_data.content)
 
-        with open(audio_mp3_path, "wb") as f:
-            f.write(requests.get(audio_url).content)
+        # Last ned lyd
+        audio_data = requests.get(audio_url)
+        with open(audio_path, "wb") as f:
+            f.write(audio_data.content)
 
-        # Konverter MP3 til WAV (MoviePy leser WAV mer stabilt)
-        audio = AudioSegment.from_mp3(audio_mp3_path)
-        audio.export(audio_wav_path, format="wav")
+        # Konverter MP3 til WAV (fix for MoviePy)
+        wav_path = os.path.join("downloads", "temp_audio.wav")
+        AudioSegment.from_file(audio_path).export(wav_path, format="wav")
 
-        video_clip = VideoFileClip(video_path)
-        audio_clip = AudioFileClip(audio_wav_path).set_duration(video_clip.duration)
-
-        final = video_clip.set_audio(audio_clip)
+        # Kombiner video + lyd
+        video = VideoFileClip(video_path)
+        audio = AudioFileClip(wav_path)
+        final = video.set_audio(audio)
         final.write_videofile(output_path, codec="libx264", audio_codec="aac")
 
-        return send_file(output_path, as_attachment=True)
+        return send_file(output_path, mimetype="video/mp4")
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+
