@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: luxury-bot
+    env: python
+    buildCommand: |
+      apt-get update && \
+      apt-get install -y ffmpeg && \
+      pip install --upgrade pip && \
+      pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: PEXELS_API_KEY
+        sync: false
