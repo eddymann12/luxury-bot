@@ -5,9 +5,9 @@ python-dotenv
 google-auth
 google-auth-oauthlib
 google-api-python-client
-moviepy==2.0.0
+moviepy==1.0.3
 imageio==2.31.1
 imageio-ffmpeg==0.4.8
-decorator
-tqdm
-pydub
+decorator==5.1.1
+tqdm==4.66.1
+pydub==0.25.1
